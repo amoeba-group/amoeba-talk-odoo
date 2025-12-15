@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record model="ir.ui.view" id="view_users_form_inherit">
+        <field name="name">res.users.form inherit</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='access_rights']" position="after">
+                <page name="api_auth" string="API Permissions">
+                    
+                    <group string="API Authentication">
+                        <group>
+                            <field name="api_domain"/>
+                            <label for="api_rest_key"/>
+                            <div class="o_row">
+                                <field name="api_rest_key"/>
+                                <button name="generate_api_rest_key" string="Get API key" class="oe_highlight" type="object"/>
+                            </div>
+                        </group>
+                    </group>
+                    
+                    <separator/>
+
+                    <group string="Allowed API Endpoints">
+                        <group string="Partners">
+                            <field name="api_allow_partner"/>
+                            <field name="api_allow_partner_detail"/>
+                            <field name="api_allow_partner_create"/>
+                        </group>
+
+                        <group string="Sale Orders">
+                            <field name="api_allow_sale_order"/>
+                            <field name="api_allow_sale_order_detail"/>
+                            <field name="api_allow_sale_order_create"/>
+                        </group>
+
+                        <group string="Countries">
+                            <field name="api_allow_countries"/>
+                            <field name="api_allow_countries_detail"/>
+                        </group>
+
+                        <group string="States">
+                            <field name="api_allow_states"/>
+                            <field name="api_allow_state_detail"/>
+                        </group>
+
+                        <group string="Products">
+                            <field name="api_allow_product"/>
+                            <field name="api_allow_product_detail"/>
+                        </group>
+
+                        <group string="Taxes">
+                            <field name="api_allow_tax"/>
+                            <field name="api_allow_tax_detail"/>
+                        </group>
+
+                    </group>
+    
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
