@@ -1,9 +1,8 @@
 # 🔗 Amoeba Talk Connector
 
 [![License: LGPL-3.0](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
-[![Odoo](https://img.shields.io/badge/Odoo-18.0%20|%2019.0-00A09D.svg)](https://www.odoo.com)
 
-Official Odoo connector for **Amoeba Talk** platform.
+Connector for **Amoeba Talk** platform.
 
 ---
 
@@ -57,14 +56,6 @@ Check what data Amoeba Talk can access:
 - ☑️ Sale Orders
 - ☑️ Countries/States
 - ☑️ Taxes
-
-### 4️⃣ Connect from Amoeba Talk
-
-In **Amoeba Talk dashboard**:
-1. Go to **Settings → Integrations → Odoo**
-2. Enter Odoo URL: `https://your-odoo.com`
-3. Enter API Token from step 1
-4. Click **Connect**
 
 ---
 
