@@ -107,37 +107,6 @@
     </div>
 </section>
 
-<!-- How to Setup -->
-<section class="oe_container" style="background-color: #875A7B;">
-    <div class="oe_row oe_spaced" style="padding: 50px 20px;">
-        <h2 class="text-center" style="font-size: 32px; font-weight: 600; color: #fff; margin-bottom: 40px;">
-            Easy Setup in 3 Steps
-        </h2>
-        
-        <div class="row">
-            <div class="col-md-4 text-center" style="padding: 20px;">
-                <div style="background: rgba(255,255,255,0.15); border-radius: 50%; width: 80px; height: 80px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-                    <span style="font-size: 36px; color: #fff; font-weight: 700;">1</span>
-                </div>
-                <h5 style="color: #fff; font-weight: 600; margin-bottom: 10px;">Install Module</h5>
-                <p style="color: rgba(255,255,255,0.8); font-size: 14px;">
-                    Install from Odoo Apps store
-                </p>
-            </div>
-            
-            <div class="col-md-4 text-center" style="padding: 20px;">
-                <div style="background: rgba(255,255,255,0.15); border-radius: 50%; width: 80px; height: 80px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-                    <span style="font-size: 36px; color: #fff; font-weight: 700;">2</span>
-                </div>
-                <h5 style="color: #fff; font-weight: 600; margin-bottom: 10px;">Generate API Token</h5>
-                <p style="color: rgba(255,255,255,0.8); font-size: 14px;">
-                    User Settings → API Settings → Generate Key
-                </p>
-            </div>
-        </div>
-    </div>
-</section>
-
 <!-- Screenshots -->
 <section class="oe_container" style="background-color: #f8f9fa;">
     <div class="oe_row oe_spaced" style="padding: 50px 20px;">
@@ -154,7 +123,7 @@
         
         <div class="text-center" style="margin-bottom: 30px;">
             <h4 style="color: #666; margin-bottom: 15px;">Set Permissions</h4>
-            <img src="image_permission.png" alt="Set Permissions" 
+            <img src="image_permisstion.png" alt="Set Permissions" 
                  style="max-width: 90%; border-radius: 10px; box-shadow: 0 5px 30px rgba(0,0,0,0.15);" 
                  class="oe_demo oe_screenshot"/>
         </div>
@@ -175,48 +144,185 @@
             Available API Endpoints
         </h2>
         
-        <div style="max-width: 800px; margin: 0 auto;">
-            <div style="background: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 15px;">
-                <h5 style="color: #875A7B; font-weight: 600;">Authentication</h5>
-                <p style="color: #666; font-size: 14px; margin: 0;">
-                    GET /api/v1/auth/check<br>
-                    GET /api/v1/auth/user-info
-                </p>
+        <!-- Authentication -->
+        <div style="background: #fff; border-radius: 10px; padding: 25px; margin-bottom: 20px; border-left: 4px solid #28a745;">
+            <h4 style="color: #28a745; font-weight: 600; margin-bottom: 15px;">
+                Authentication
+            </h4>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; width: 100px;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/auth/check</td>
+                    <td style="padding: 10px 0; color: #666;">Verify connection and token validity</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/auth/user-info</td>
+                    <td style="padding: 10px 0; color: #666;">Get authenticated user information</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- Partners -->
+        <div style="background: #fff; border-radius: 10px; padding: 25px; margin-bottom: 20px; border-left: 4px solid #17a2b8;">
+            <h4 style="color: #17a2b8; font-weight: 600; margin-bottom: 15px;">
+                Partners (Customers / Suppliers / Contacts)
+            </h4>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; width: 100px;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/partners</td>
+                    <td style="padding: 10px 0; color: #666;">List partners with pagination, search, filters</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/partners/{id}</td>
+                    <td style="padding: 10px 0; color: #666;">Get partner details with contacts & addresses</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0;">
+                        <span style="background: #ffc107; color: #ffc107; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">POST</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/partners/create</td>
+                    <td style="padding: 10px 0; color: #666;">Create new partner/customer/supplier</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- Products -->
+        <div style="background: #fff; border-radius: 10px; padding: 25px; margin-bottom: 20px; border-left: 4px solid #6f42c1;">
+            <h4 style="color: #6f42c1; font-weight: 600; margin-bottom: 15px;">
+                Products
+            </h4>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; width: 100px;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/products</td>
+                    <td style="padding: 10px 0; color: #666;">List products with variants, stock, suppliers options</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/products/{id}</td>
+                    <td style="padding: 10px 0; color: #666;">Get product details with full information</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- Sale Orders -->
+        <div style="background: #fff; border-radius: 10px; padding: 25px; margin-bottom: 20px; border-left: 4px solid #fd7e14;">
+            <h4 style="color: #fd7e14; font-weight: 600; margin-bottom: 15px;">
+                Sale Orders
+            </h4>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; width: 100px;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/sale-orders</td>
+                    <td style="padding: 10px 0; color: #666;">List orders with date range, status filters</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/sale-orders/{id}</td>
+                    <td style="padding: 10px 0; color: #666;">Get order details with order lines</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0;">
+                        <span style="background: #ffc107; color: #ffc107; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">POST</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/sale-orders/create</td>
+                    <td style="padding: 10px 0; color: #666;">Create new sale order with lines</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- Countries & States -->
+        <div style="background: #fff; border-radius: 10px; padding: 25px; margin-bottom: 20px; border-left: 4px solid #20c997;">
+            <h4 style="color: #20c997; font-weight: 600; margin-bottom: 15px;">
+                Countries & States
+            </h4>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; width: 100px;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/countries</td>
+                    <td style="padding: 10px 0; color: #666;">List all countries with optional states</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0;">
+                        <span style="background: #28a745; color: #28a745; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    </td>
+                    <td style="padding: 10px 0; font-family: monospace; color: #333;">/api/v1/states</td>
+                    <td style="padding: 10px 0; color: #666;">List states/provinces by country</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- Technical Specifications -->
+<section class="oe_container">
+    <div class="oe_row oe_spaced" style="padding: 50px 20px;">
+        <h2 class="text-center" style="font-size: 32px; font-weight: 600; color: #333; margin-bottom: 40px;">
+            Technical Specifications
+        </h2>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 0; color: #666;">API Format</td>
+                        <td style="padding: 12px 0; font-weight: 600; color: #333;">RESTful JSON</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 0; color: #666;">Authentication</td>
+                        <td style="padding: 12px 0; font-weight: 600; color: #333;">Bearer Token</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 0; color: #666;">Encoding</td>
+                        <td style="padding: 12px 0; font-weight: 600; color: #333;">UTF-8</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 0; color: #666;">CORS Support</td>
+                        <td style="padding: 12px 0; font-weight: 600; color: #28a745;">Enabled</td>
+                    </tr>
+                </table>
             </div>
             
-            <div style="background: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 15px;">
-                <h5 style="color: #875A7B; font-weight: 600;">Partners</h5>
-                <p style="color: #666; font-size: 14px; margin: 0;">
-                    GET /api/v1/partners<br>
-                    GET /api/v1/partners/{id}<br>
-                    POST /api/v1/partners/create
-                </p>
-            </div>
-            
-            <div style="background: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 15px;">
-                <h5 style="color: #875A7B; font-weight: 600;">Products</h5>
-                <p style="color: #666; font-size: 14px; margin: 0;">
-                    GET /api/v1/products<br>
-                    GET /api/v1/products/{id}
-                </p>
-            </div>
-            
-            <div style="background: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 15px;">
-                <h5 style="color: #875A7B; font-weight: 600;">Sale Orders</h5>
-                <p style="color: #666; font-size: 14px; margin: 0;">
-                    GET /api/v1/sale-orders<br>
-                    GET /api/v1/sale-orders/{id}<br>
-                    POST /api/v1/sale-orders/create
-                </p>
-            </div>
-            
-            <div style="background: #f8f9fa; border-radius: 10px; padding: 20px;">
-                <h5 style="color: #875A7B; font-weight: 600;">Master Data</h5>
-                <p style="color: #666; font-size: 14px; margin: 0;">
-                    GET /api/v1/countries<br>
-                    GET /api/v1/states<br>
-                    GET /api/v1/taxes
-                </p>
+            <div class="col-md-6">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 0; color: #666;">Pagination</td>
+                        <td style="padding: 12px 0; font-weight: 600; color: #333;">Page-based (max 100/page)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 0; color: #666;">Sorting</td>
+                        <td style="padding: 12px 0; font-weight: 600; color: #333;">ASC / DESC</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 0; color: #666;">Filtering</td>
+                        <td style="padding: 12px 0; font-weight: 600; color: #333;">Multi-field support</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 0; color: #666;">Timestamps</td>
+                        <td style="padding: 12px 0; font-weight: 600; color: #333;">ISO 8601 (UTC)</td>
+                    </tr>
+                </table>
             </div>
         </div>
     </div>

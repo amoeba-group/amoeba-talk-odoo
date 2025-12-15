@@ -74,7 +74,7 @@ Complete setup guide and API documentation available at:
 https://github.com/amoeba-group/amoeba-talk-odoo
     """,
     
-    'version': '19.0.1.0.5',
+    'version': '18.0.0.0',
     'category': 'Technical/API',
     'license': 'LGPL-3',
     
@@ -99,7 +99,7 @@ https://github.com/amoeba-group/amoeba-talk-odoo
     
     # Images for App Store
     'images': [
-        'static/description/banner.png',
+        'static/description/amb_talk_18.png',
         'static/description/icon.png',
     ],
     
