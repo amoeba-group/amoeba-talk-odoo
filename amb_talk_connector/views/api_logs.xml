@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- list View -->
+    <record id="view_api_transaction_log_list" model="ir.ui.view">
+        <field name="name">api.transaction.log.list</field>
+        <field name="model">api.transaction.log</field>
+        <field name="arch" type="xml">
+            <list decoration-success="status=='success'" 
+                  decoration-danger="status in ('error', 'failed')"
+                  decoration-warning="response_status &gt;= 400">
+                <field name="create_date" string="Time"/>
+                <field name="version"/>
+                <field name="method"/>
+                <field name="endpoint"/>
+                <field name="user_id"/>
+                <field name="request_origin"/>
+                <field name="request_ip"/>
+                <field name="response_status"/>
+                <field name="status"/>
+                <field name="duration_ms" string="Duration (ms)"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_api_transaction_log_form" model="ir.ui.view">
+        <field name="name">api.transaction.log.form</field>
+        <field name="model">api.transaction.log</field>
+        <field name="arch" type="xml">
+            <form string="API Transaction Log" create="false" edit="false">
+                <header>
+                    <field name="status" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <!-- <div class="oe_button_box" name="button_box">
+                        <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
+                            <field name="active" widget="boolean_button"/>
+                        </button>
+                    </div> -->
+                    <group>
+                        <group name="request_info" string="Request Information">
+                            <field name="version"/>
+                            <field name="method"/>
+                            <field name="endpoint"/>
+                            <field name="user_id"/>
+                            <field name="token"/>
+                            <field name="request_origin"/>
+                            <field name="request_ip"/>
+                        </group>
+                        <group name="response_info" string="Response Information">
+                            <field name="response_status"/>
+                            <field name="response_message"/>
+                            <field name="start_time"/>
+                            <field name="end_time"/>
+                            <field name="duration_ms"/>
+                            <field name="status"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Request Details" name="request_details">
+                            <group>
+                                <field name="request_user_agent" readonly="1"/>
+                                <field name="request_params" readonly="1"/>
+                                <field name="request_body" readonly="1"/>
+                            </group>
+                        </page>
+                        <page string="Response Details" name="response_details">
+                            <group>
+                                <field name="response_data" readonly="1"/>
+                            </group>
+                        </page>
+                        <page string="Error Details" name="error_details" invisible="status == 'success'">
+                            <group>
+                                <field name="error_type" readonly="1"/>
+                                <field name="error_message" widget="text" readonly="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_api_transaction_log_search" model="ir.ui.view">
+        <field name="name">api.transaction.log.search</field>
+        <field name="model">api.transaction.log</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="endpoint"/>
+                <field name="user_id"/>
+                <field name="request_ip"/>
+                <field name="request_origin"/>
+                <filter name="success" string="Success" domain="[('status', '=', 'success')]"/>
+                <filter name="error" string="Error" domain="[('status', 'in', ('error', 'failed'))]"/>
+                <filter name="today" string="Today" domain="[('create_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="last_7_days" string="Last 7 Days" 
+                        domain="[('create_date', '&gt;=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_user" string="User" context="{'group_by': 'user_id'}"/>
+                    <filter name="group_by_endpoint" string="Endpoint" context="{'group_by': 'endpoint'}"/>
+                    <filter name="group_by_status" string="Status" context="{'group_by': 'status'}"/>
+                    <filter name="group_by_method" string="Method" context="{'group_by': 'method'}"/>
+                    <filter name="group_by_date" string="Date" context="{'group_by': 'create_date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_api_transaction_log" model="ir.actions.act_window">
+        <field name="name">API Transaction Logs</field>
+        <field name="res_model">api.transaction.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_today': 1}</field>
+    </record>
+
+    <!-- Menu -->
+    <menuitem id="menu_api_root" name="API Logs" parent="base.menu_administration" action="action_api_transaction_log" groups="base.group_erp_manager" sequence="80"/>
+    <!-- <menuitem id="menu_api_transaction_log" name="Transaction Logs" parent="menu_api_root" action="action_api_transaction_log" sequence="10"/> -->
+</odoo>
