@@ -23,7 +23,7 @@ This module enables **Amoeba Talk** to connect and sync data with your Odoo syst
 ```bash
 # Clone to Odoo addons folder
 cd /path/to/odoo/addons
-git clone https://github.com/amoeba-group/amoeba-talk-odoo.git amb_talk
+git clone https://github.com/amoeba-group/amoeba-talk-odoo.git
 
 # Restart Odoo
 # Apps → Update Apps List → Install "Amoeba Talk Connector"
