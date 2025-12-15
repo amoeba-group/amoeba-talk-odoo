@@ -28,7 +28,7 @@ This module provides a complete REST API layer for Odoo, enabling external appli
 ```bash
 # Clone to your Odoo addons folder
 cd /path/to/odoo/addons
-git clone https://github.com/amoeba-group/amoeba-talk-odoo.git amb_talk
+git clone https://github.com/amoeba-group/amoeba-talk-odoo.git 
 
 # Restart Odoo, then:
 # Apps → Update Apps List → Search "Amoeba Talk Connector" → Install
