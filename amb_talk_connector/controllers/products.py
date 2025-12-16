@@ -4,14 +4,14 @@ from datetime import datetime
 import json
 import traceback
 import logging
-from odoo.addons.amb_auth.controllers.main import ApiAuthBaseController
+from odoo.addons.amb_talk_connector.controllers.main import ApiAuthBaseController
 
 _logger = logging.getLogger(__name__)
 
 
 class ApiProductV1Controller(ApiAuthBaseController):
     """API Product Version 1"""
-    
+# ====================== Product.Product ===================
     def _build_product_domain(self, filters):
         """Xây dựng domain từ filters cho product"""
         domain = []
@@ -386,7 +386,7 @@ class ApiProductV1Controller(ApiAuthBaseController):
                 )
                 return self._make_response(response_data, status_code)
             
-            if not user.api_allow_product_detail:
+            if not user.api_allow_product:
                 error_msg = "Access denied: You do not have permission to access this endpoint."
                 response_data = {
                     'status': 'error',
@@ -483,6 +483,567 @@ class ApiProductV1Controller(ApiAuthBaseController):
             # Log failed transaction
             self._create_transaction_log(
                 endpoint=f'/api/v1/products/{product_id}',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                error_message=error_msg,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+        
+        
+# ====================== Product.Template ===================
+
+    def _build_product_template_domain(self, filters):
+        """Xây dựng domain từ filters cho product template"""
+        domain = []
+        
+        # Search by name, default_code (internal reference)
+        if filters.get('search'):
+            search_term = filters['search']
+            domain.append('|')
+            domain.append(('name', 'ilike', search_term))
+            domain.append(('default_code', 'ilike', search_term))
+        
+        # Filter by product type
+        if filters.get('type'):
+            types = filters['type'].split(',') if isinstance(filters['type'], str) else [filters['type']]
+            domain.append(('type', 'in', types))
+        
+        # Filter by category
+        if filters.get('categ_id'):
+            try:
+                domain.append(('categ_id', '=', int(filters['categ_id'])))
+            except ValueError:
+                pass
+        
+        if filters.get('categ_name'):
+            domain.append(('categ_id.name', 'ilike', filters['categ_name']))
+        
+        # Filter by sale_ok (can be sold)
+        if filters.get('sale_ok'):
+            sale_ok = filters['sale_ok'].lower() in ['true', '1', 'yes']
+            domain.append(('sale_ok', '=', sale_ok))
+        
+        # Filter by purchase_ok (can be purchased)
+        if filters.get('purchase_ok'):
+            purchase_ok = filters['purchase_ok'].lower() in ['true', '1', 'yes']
+            domain.append(('purchase_ok', '=', purchase_ok))
+        
+        # Filter by active status
+        if filters.get('active'):
+            active = filters['active'].lower() in ['true', '1', 'yes']
+            domain.append(('active', '=', active))
+        
+        # Filter by price range (list_price)
+        if filters.get('price_min'):
+            try:
+                domain.append(('list_price', '>=', float(filters['price_min'])))
+            except ValueError:
+                pass
+        
+        if filters.get('price_max'):
+            try:
+                domain.append(('list_price', '<=', float(filters['price_max'])))
+            except ValueError:
+                pass
+        
+        # Filter by company
+        if filters.get('company_id'):
+            try:
+                domain.append(('company_id', '=', int(filters['company_id'])))
+            except ValueError:
+                pass
+        
+        return domain
+    
+    def _prepare_product_template_data(self, template, include_variants=False, include_stock=False, include_suppliers=False):
+        """Chuẩn bị data của product template"""
+        data = {
+            'id': template.id,
+            'name': template.name,
+            'display_name': template.display_name,
+            'default_code': template.default_code,
+            'barcode': template.barcode,
+            'type': template.type,
+            'type_display': dict(template._fields['type'].selection).get(template.type),
+            
+            'categ': {
+                'id': template.categ_id.id,
+                'name': template.categ_id.name,
+                'complete_name': template.categ_id.complete_name,
+            } if template.categ_id else None,
+            
+            'list_price': template.list_price,  
+            'standard_price': template.standard_price, 
+            
+            'currency': {
+                'id': template.currency_id.id,
+                'name': template.currency_id.name,
+                'symbol': template.currency_id.symbol,
+            } if template.currency_id else None,
+            
+            'uom': {
+                'id': template.uom_id.id,
+                'name': template.uom_id.name,
+            } if template.uom_id else None,
+            'uom_po': {
+                'id': template.uom_po_id.id,
+                'name': template.uom_po_id.name,
+            } if template.uom_po_id else None,
+            
+            'sale_ok': template.sale_ok,
+            'purchase_ok': template.purchase_ok,
+            'active': template.active,
+            
+            'tracking': template.tracking,
+            'tracking_display': dict(template._fields['tracking'].selection).get(template.tracking),
+            
+            'weight': template.weight,
+            'volume': template.volume,
+            
+            'description': template.description,
+            'description_sale': template.description_sale,
+            'description_purchase': template.description_purchase,
+            
+            'company': {
+                'id': template.company_id.id,
+                'name': template.company_id.name,
+            } if template.company_id else None,
+            
+            'product_variant_count': template.product_variant_count,
+            'has_configurable_attributes': bool(template.attribute_line_ids),
+            
+            'create_date': template.create_date.isoformat() if template.create_date else None,
+            'write_date': template.write_date.isoformat() if template.write_date else None,
+        }
+        
+        # Include product variants
+        if include_variants and template.product_variant_ids:
+            data['variants'] = []
+            for variant in template.product_variant_ids:
+                variant_data = {
+                    'id': variant.id,
+                    'display_name': variant.display_name,
+                    'default_code': variant.default_code,
+                    'barcode': variant.barcode,
+                    'list_price': variant.list_price,
+                    'standard_price': variant.standard_price,
+                    'active': variant.active,
+                }
+                
+                # Add variant attributes
+                if variant.product_template_attribute_value_ids:
+                    variant_data['attributes'] = []
+                    for attr_value in variant.product_template_attribute_value_ids:
+                        variant_data['attributes'].append({
+                            'attribute_id': attr_value.attribute_id.id,
+                            'attribute_name': attr_value.attribute_id.name,
+                            'value_id': attr_value.product_attribute_value_id.id,
+                            'value_name': attr_value.name,
+                        })
+                
+                # Add stock info for variant if requested
+                if include_stock:
+                    try:
+                        variant_data['stock_info'] = {
+                            'qty_available': variant.qty_available,
+                            'virtual_available': variant.virtual_available,
+                            'incoming_qty': variant.incoming_qty,
+                            'outgoing_qty': variant.outgoing_qty,
+                        }
+                    except Exception as e:
+                        pass
+                
+                data['variants'].append(variant_data)
+        
+        # Include attribute lines (for configurable products)
+        if template.attribute_line_ids:
+            data['attribute_lines'] = []
+            for line in template.attribute_line_ids:
+                data['attribute_lines'].append({
+                    'id': line.id,
+                    'attribute': {
+                        'id': line.attribute_id.id,
+                        'name': line.attribute_id.name,
+                        'display_type': line.attribute_id.display_type,
+                    },
+                    'values': [{
+                        'id': val.id,
+                        'name': val.name,
+                    } for val in line.value_ids]
+                })
+        
+        # Include stock information (summary)
+        if include_stock:
+            try:
+                # For template, we can sum all variants or show first variant
+                if template.product_variant_ids:
+                    total_qty = sum(v.qty_available for v in template.product_variant_ids)
+                    total_virtual = sum(v.virtual_available for v in template.product_variant_ids)
+                    
+                    data['stock_info'] = {
+                        'total_qty_available': total_qty,
+                        'total_virtual_available': total_virtual,
+                    }
+            except Exception as e:
+                pass
+        
+        # Include suppliers information
+        if include_suppliers and hasattr(template, 'seller_ids') and template.seller_ids:
+            data['suppliers'] = []
+            for seller in template.seller_ids:
+                data['suppliers'].append({
+                    'id': seller.id,
+                    'partner': {
+                        'id': seller.partner_id.id,
+                        'name': seller.partner_id.name,
+                    } if seller.partner_id else None,
+                    'product_name': seller.product_name,
+                    'product_code': seller.product_code,
+                    'price': seller.price,
+                    'min_qty': seller.min_qty,
+                    'delay': seller.delay,
+                    'currency': {
+                        'id': seller.currency_id.id,
+                        'name': seller.currency_id.name,
+                        'symbol': seller.currency_id.symbol,
+                    } if seller.currency_id else None,
+                })
+        
+        # Include taxes
+        if hasattr(template, 'taxes_id') and template.taxes_id:
+            data['taxes'] = [{'id': tax.id, 'name': tax.name, 'amount': tax.amount} for tax in template.taxes_id]
+        
+        if hasattr(template, 'supplier_taxes_id') and template.supplier_taxes_id:
+            data['supplier_taxes'] = [{'id': tax.id, 'name': tax.name, 'amount': tax.amount} for tax in template.supplier_taxes_id]
+        
+        # Include image (if needed)
+        if template.image_128:
+            data['has_image'] = True
+        else:
+            data['has_image'] = False
+        
+        return data
+    
+    @http.route('/api/v1/product-templates', type='http', auth='public', methods=['GET'], csrf=False, cors='*')
+    def get_product_templates(self, **kwargs):
+        """
+        Lấy danh sách product templates với phân trang, search, sort
+        
+        Query Parameters:
+            - page: Số trang (default: 1)
+            - page_size: Số records mỗi trang (default: 20, max: 100)
+            - limit: Giới hạn số records (alternative to page_size)
+            - offset: Bỏ qua số records (alternative to page)
+            - sort: Trường sắp xếp (default: name)
+            - order: Thứ tự sắp xếp: asc/desc (default: asc)
+            - search: Tìm kiếm theo name hoặc default_code
+            - type: Filter theo type (consu, service, product)
+            - categ_id: Filter theo category ID
+            - categ_name: Filter theo category name (like search)
+            - sale_ok: Filter theo can be sold (true/false)
+            - purchase_ok: Filter theo can be purchased (true/false)
+            - active: Filter theo active status (true/false, default: true)
+            - price_min: Filter price >= giá trị
+            - price_max: Filter price <= giá trị
+            - company_id: Filter theo company
+            - include_variants: Có include product variants không (true/false, default: false)
+            - include_stock: Có include stock info không (true/false, default: false)
+            - include_suppliers: Có include suppliers không (true/false, default: false)
+        """
+        start_time = datetime.utcnow()
+        user = None
+        response_data = None
+        status_code = 200
+        log_status = 'success'
+        error_msg = None
+        
+        try:
+            # Validate token and domain
+            user, error_response, status_code = self._validate_token()
+            if error_response:
+                response_data = error_response
+                log_status = 'error'
+                error_msg = error_response.get('message')
+                self._create_transaction_log(
+                    endpoint='/api/v1/product-templates',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                return self._make_response(response_data, status_code)
+            
+            if not user.api_allow_product_template:
+                error_msg = "Access denied: You do not have permission to access this endpoint."
+                response_data = {
+                    'status': 'error',
+                    'message': f'{error_msg}',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                log_status = 'failed'
+                status_code = 403
+                
+                self._create_transaction_log(
+                    endpoint='/api/v1/product-templates',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                return self._make_response(response_data, status_code)
+            
+            # Pagination parameters
+            page = int(kwargs.get('page', 1))
+            page_size = int(kwargs.get('page_size', kwargs.get('limit', 20)))
+            page_size = min(page_size, 100)  # Max 100 records per page
+            offset = int(kwargs.get('offset', (page - 1) * page_size))
+            
+            # Sort parameters
+            sort_field = kwargs.get('sort', 'name')
+            sort_order = kwargs.get('order', 'asc').lower()
+            
+            # Validate sort order
+            if sort_order not in ['asc', 'desc']:
+                sort_order = 'asc'
+            
+            order_by = f"{sort_field} {sort_order}"
+            
+            # Build domain from filters
+            domain = self._build_product_template_domain(kwargs)
+            
+            # Include options
+            include_variants = kwargs.get('include_variants', 'false').lower() == 'true'
+            include_stock = kwargs.get('include_stock', 'false').lower() == 'true'
+            include_suppliers = kwargs.get('include_suppliers', 'false').lower() == 'true'
+            
+            # Get product templates
+            ProductTemplate = request.env['product.template'].sudo()
+            total_count = ProductTemplate.search_count(domain)
+            templates = ProductTemplate.search(domain, limit=page_size, offset=offset, order=order_by)
+            
+            # Prepare response data
+            templates_data = []
+            for template in templates:
+                try:
+                    template_data = self._prepare_product_template_data(
+                        template, 
+                        include_variants=include_variants,
+                        include_stock=include_stock,
+                        include_suppliers=include_suppliers
+                    )
+                    templates_data.append(template_data)
+                except Exception as e:
+                    _logger.warning(f"Error preparing data for product template {template.id}: {str(e)}")
+                    continue
+            
+            response_data = {
+                'status': 'success',
+                'message': f'Found {total_count} product template(s)',
+                'version': 'v1',
+                'timestamp': datetime.utcnow().isoformat() + "Z",
+                'data': templates_data,
+                'pagination': {
+                    'total': total_count,
+                    'page': page,
+                    'page_size': page_size,
+                    'total_pages': (total_count + page_size - 1) // page_size if page_size > 0 else 0,
+                    'offset': offset,
+                    'has_next': offset + page_size < total_count,
+                    'has_previous': offset > 0,
+                },
+                'filters_applied': {
+                    'search': kwargs.get('search'),
+                    'type': kwargs.get('type'),
+                    'categ_name': kwargs.get('categ_name'),
+                    'sale_ok': kwargs.get('sale_ok'),
+                    'purchase_ok': kwargs.get('purchase_ok'),
+                    'active': kwargs.get('active'),
+                }
+            }
+            
+            # Log successful transaction
+            self._create_transaction_log(
+                endpoint='/api/v1/product-templates',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+            
+        except Exception as e:
+            error_msg = str(e)
+            response_data = {
+                'status': 'error',
+                'message': f'Internal server error: {error_msg}',
+                'timestamp': datetime.utcnow().isoformat() + "Z"
+            }
+            log_status = 'failed'
+            status_code = 500
+            
+            _logger.error(f"API Error at /api/v1/product-templates: {traceback.format_exc()}")
+            
+            # Log failed transaction
+            self._create_transaction_log(
+                endpoint='/api/v1/product-templates',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                error_message=error_msg,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+    
+    @http.route('/api/v1/product-templates/<int:template_id>', type='http', auth='public', methods=['GET'], csrf=False, cors='*')
+    def get_product_template_detail(self, template_id, **kwargs):
+        """
+        Lấy chi tiết một product template theo ID
+        
+        Query Parameters:
+            - include_variants: Có include product variants không (true/false, default: true)
+            - include_stock: Có include stock info không (true/false, default: true)
+            - include_suppliers: Có include suppliers không (true/false, default: true)
+        """
+        start_time = datetime.utcnow()
+        user = None
+        response_data = None
+        status_code = 200
+        log_status = 'success'
+        error_msg = None
+        
+        try:
+            # Validate token and domain
+            user, error_response, status_code = self._validate_token()
+            if error_response:
+                response_data = error_response
+                log_status = 'error'
+                error_msg = error_response.get('message')
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/product-templates/{template_id}',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                return self._make_response(response_data, status_code)
+            
+            if not user.api_allow_product_template:
+                error_msg = "Access denied: You do not have permission to access this endpoint."
+                response_data = {
+                    'status': 'error',
+                    'message': f'{error_msg}',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                log_status = 'failed'
+                status_code = 403
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/product-templates/{template_id}',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                return self._make_response(response_data, status_code)
+            
+            # Include options - default to true for detail view
+            include_variants = kwargs.get('include_variants', 'true').lower() == 'true'
+            include_stock = kwargs.get('include_stock', 'true').lower() == 'true'
+            include_suppliers = kwargs.get('include_suppliers', 'true').lower() == 'true'
+            
+            # Get product template
+            template = request.env['product.template'].sudo().browse(template_id)
+            
+            if not template.exists():
+                response_data = {
+                    'status': 'error',
+                    'message': f'Product template with ID {template_id} not found',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 404
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/product-templates/{template_id}',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Prepare response data
+            template_data = self._prepare_product_template_data(
+                template,
+                include_variants=include_variants,
+                include_stock=include_stock,
+                include_suppliers=include_suppliers
+            )
+            
+            response_data = {
+                'status': 'success',
+                'message': 'Product template retrieved successfully',
+                'version': 'v1',
+                'timestamp': datetime.utcnow().isoformat() + "Z",
+                'data': template_data
+            }
+            
+            # Log successful transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/product-templates/{template_id}',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+            
+        except Exception as e:
+            error_msg = str(e)
+            response_data = {
+                'status': 'error',
+                'message': f'Internal server error: {error_msg}',
+                'timestamp': datetime.utcnow().isoformat() + "Z"
+            }
+            log_status = 'failed'
+            status_code = 500
+            
+            _logger.error(f"API Error at /api/v1/product-templates/{template_id}: {traceback.format_exc()}")
+            
+            # Log failed transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/product-templates/{template_id}',
                 version='v1',
                 user=user,
                 response_data=response_data,

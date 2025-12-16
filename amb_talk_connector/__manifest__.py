@@ -86,6 +86,7 @@ https://github.com/amoeba-group/amoeba-talk-odoo
     'depends': [
         'base',
         'sale',
+        'sale_management',
     ],
     
     'data': [

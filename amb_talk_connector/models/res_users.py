@@ -11,23 +11,18 @@ class ResUsers(models.Model):
     api_domain = fields.Char(string="API Domain", copy=False)
     
     api_allow_partner = fields.Boolean(string="Allow Partner", default=True)
-    api_allow_partner_detail = fields.Boolean(string="Allow Partner Detail", default=True)
     api_allow_partner_create = fields.Boolean(string="Allow Partner Create", default=False)
     
     api_allow_countries = fields.Boolean(string="Allow Countries", default=True)
-    api_allow_countries_detail = fields.Boolean(string="Allow Countries Detail", default=True)
     
     api_allow_states = fields.Boolean(string="Allow States", default=True)
-    api_allow_state_detail = fields.Boolean(string="Allow State Detail", default=True)
     
     api_allow_product = fields.Boolean(string="Allow Product", default=True)
-    api_allow_product_detail = fields.Boolean(string="Allow Product Detail", default=True)
+    api_allow_product_template = fields.Boolean(string="Allow Product Template", default=True)
     
     api_allow_tax = fields.Boolean(string="Allow Tax", default=True)
-    api_allow_tax_detail = fields.Boolean(string="Allow Tax Detail", default=True)
     
     api_allow_sale_order = fields.Boolean(string="Allow Sale Order", default=True)
-    api_allow_sale_order_detail = fields.Boolean(string="Allow Sale Order Detail", default=True)
     api_allow_sale_order_create = fields.Boolean(string="Allow Sale Order Create", default=False)
 
 

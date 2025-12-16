@@ -25,34 +25,27 @@
                     <group string="Allowed API Endpoints">
                         <group string="Partners">
                             <field name="api_allow_partner"/>
-                            <field name="api_allow_partner_detail"/>
                             <field name="api_allow_partner_create"/>
                         </group>
 
                         <group string="Sale Orders">
                             <field name="api_allow_sale_order"/>
-                            <field name="api_allow_sale_order_detail"/>
                             <field name="api_allow_sale_order_create"/>
                         </group>
 
-                        <group string="Countries">
+                        <group string="Countries &amp; States">
                             <field name="api_allow_countries"/>
-                            <field name="api_allow_countries_detail"/>
+                            <field name="api_allow_states"/>
                         </group>
 
-                        <group string="States">
-                            <field name="api_allow_states"/>
-                            <field name="api_allow_state_detail"/>
-                        </group>
 
                         <group string="Products">
                             <field name="api_allow_product"/>
-                            <field name="api_allow_product_detail"/>
+                            <field name="api_allow_product_template"/>
                         </group>
 
                         <group string="Taxes">
                             <field name="api_allow_tax"/>
-                            <field name="api_allow_tax_detail"/>
                         </group>
 
                     </group>

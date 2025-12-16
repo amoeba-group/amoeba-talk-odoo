@@ -264,10 +264,10 @@ class ApiAuthV1Controller(ApiAuthBaseController):
                     'name': user.name,
                     'login': user.login,
                     'email': user.email,
-                    'company': {
-                        'id': user.company_id.id,
-                        'name': user.company_id.name
-                    } if user.company_id else None
+                    'company': [{
+                        'id': company.id,
+                        'name': company.name
+                    }for company in user.company_ids] 
                 }
             }
             

@@ -5,7 +5,7 @@ from datetime import datetime
 import json
 import traceback
 import logging
-from odoo.addons.amb_auth.controllers.main import ApiAuthBaseController
+from odoo.addons.amb_talk_connector.controllers.main import ApiAuthBaseController
 
 _logger = logging.getLogger(__name__)
 
@@ -361,7 +361,7 @@ class ApiTaxV1Controller(ApiAuthBaseController):
                 )
                 return self._make_response(response_data, status_code)
             
-            if not user.api_allow_tax_detail:
+            if not user.api_allow_tax:
                 error_msg = "Access denied: You do not have permission to access this endpoint."
                 response_data = {
                     'status': 'error',
