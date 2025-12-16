@@ -105,7 +105,7 @@ https://github.com/amoeba-group/amoeba-talk-odoo
     ],
     
     # Hooks
-    'post_init_hook': 'create_api_connect_user',
+    # 'post_init_hook': 'create_api_connect_user',
     
     # Installation
     'installable': True,
