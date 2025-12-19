@@ -10,20 +10,24 @@ class ResUsers(models.Model):
     api_rest_key = fields.Char(string="API Rest Key", copy=False)
     api_domain = fields.Char(string="API Domain", copy=False)
     
-    api_allow_partner = fields.Boolean(string="Allow Partner", default=True)
-    api_allow_partner_create = fields.Boolean(string="Allow Partner Create", default=False)
+    api_allow_partner = fields.Boolean(string="Partner", default=True)
+    api_allow_partner_create = fields.Boolean(string="Partner Create", default=True)
+    api_allow_partner_write = fields.Boolean(string="Partner Write", default=True)
+    api_allow_partner_delete = fields.Boolean(string="Partner Delete", default=True)
     
-    api_allow_countries = fields.Boolean(string="Allow Countries", default=True)
+    api_allow_countries = fields.Boolean(string="Countries", default=True)
     
-    api_allow_states = fields.Boolean(string="Allow States", default=True)
+    api_allow_states = fields.Boolean(string="States", default=True)
     
-    api_allow_product = fields.Boolean(string="Allow Product", default=True)
-    api_allow_product_template = fields.Boolean(string="Allow Product Template", default=True)
+    api_allow_product = fields.Boolean(string="Product", default=True)
+    api_allow_product_template = fields.Boolean(string="Product Template", default=True)
     
-    api_allow_tax = fields.Boolean(string="Allow Tax", default=True)
+    api_allow_tax = fields.Boolean(string="Tax", default=True)
     
-    api_allow_sale_order = fields.Boolean(string="Allow Sale Order", default=True)
-    api_allow_sale_order_create = fields.Boolean(string="Allow Sale Order Create", default=False)
+    api_allow_sale_order = fields.Boolean(string="Sale Order", default=True)
+    api_allow_sale_order_create = fields.Boolean(string="Sale Order Create", default=True)
+    api_allow_sale_order_write = fields.Boolean(string="Sale Order Write", default=True)
+    # api_allow_sale_order_delete = fields.Boolean(string="Sale Order Delete", default=True)
 
 
     def generate_api_rest_key(self):

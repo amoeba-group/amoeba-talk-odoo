@@ -169,28 +169,6 @@ class ApiSaleOrderV1Controller(ApiAuthBaseController):
     
     @http.route('/api/v1/sale-orders', type='http', auth='public', methods=['GET'], csrf=False, cors='*')
     def get_sale_orders(self, **kwargs):
-        """
-        Lấy danh sách sale orders với phân trang, search, sort
-        
-        Query Parameters:
-            - page: Số trang (default: 1)
-            - page_size: Số records mỗi trang (default: 20, max: 100)
-            - limit: Giới hạn số records (alternative to page_size)
-            - offset: Bỏ qua số records (alternative to page)
-            - sort: Trường sắp xếp (default: date_order)
-            - order: Thứ tự sắp xếp: asc/desc (default: desc)
-            - search: Tìm kiếm theo name
-            - state: Filter theo state (có thể multiple: draft,sent,sale)
-            - partner_id: Filter theo partner ID
-            - partner_name: Filter theo partner name (like search)
-            - user_id: Filter theo salesperson ID
-            - date_from: Filter từ ngày (YYYY-MM-DD)
-            - date_to: Filter đến ngày (YYYY-MM-DD)
-            - amount_min: Filter amount >= giá trị
-            - amount_max: Filter amount <= giá trị
-            - company_id: Filter theo company
-            - include_lines: Có include order lines không (true/false, default: false)
-        """
         start_time = datetime.utcnow()
         user = None
         response_data = None
@@ -626,33 +604,6 @@ class ApiSaleOrderV1Controller(ApiAuthBaseController):
     
     @http.route('/api/v1/sale-orders/create', type='http', auth='public', methods=['POST'], csrf=False, cors='*')
     def create_sale_order(self, **kwargs):
-        """
-        Tạo mới sale order
-        
-        Body (JSON):
-        {
-            "partner_id": 123,                    // Required: Customer ID
-            "date_order": "2024-11-25T10:00:00",  // Optional: Order date (ISO format)
-            "client_order_ref": "PO-2024-001",    // Optional: Customer Reference
-            "user_id": 2,                         // Optional: Salesperson ID
-            "payment_term_id": 1,                 // Optional: Payment term ID
-            "company_id": 1,                      // Optional: Company ID
-            "note": "Special instructions",       // Optional: Internal notes
-            "order_lines": [                      // Required: At least 1 line
-                {
-                    "product_id": 456,            // Required: Product ID
-                    "product_uom_qty": 2,         // Required: Quantity
-                    "price_unit": 100.00,         // Optional: Unit price (use product price if not provided)
-                    "discount": 10,               // Optional: Discount % (0-100)
-                    "name": "Custom description", // Optional: Line description
-                    "product_uom": 1,             // Optional: UoM ID
-                    "tax_ids": [1, 2]            // Optional: Tax IDs array
-                },
-                ...
-            ],
-            "confirm_order": true                 // Optional: Auto confirm order after creation (default: false)
-        }
-        """
         start_time = datetime.utcnow()
         user = None
         response_data = None
@@ -833,6 +784,936 @@ class ApiSaleOrderV1Controller(ApiAuthBaseController):
             # Log failed transaction
             self._create_transaction_log(
                 endpoint='/api/v1/sale-orders/create',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                error_message=error_msg,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+        
+# ====================== 3. UPDATE SALE ORDER ==================================
+    
+    def _validate_order_update_data(self, data, order):
+        """Validate dữ liệu order trước khi update"""
+        errors = []
+        
+        # Chỉ cho phép update khi order ở trạng thái draft hoặc sent
+        if order.state not in ['draft', 'sent']:
+            errors.append(f"Cannot update order in state '{order.state}'. Only 'draft' or 'sent' orders can be updated")
+            return errors  # Return ngay nếu state không hợp lệ
+        
+        # Validate partner_id if provided
+        if 'partner_id' in data:
+            if not data['partner_id']:
+                errors.append("partner_id cannot be empty")
+            else:
+                try:
+                    partner_id = int(data['partner_id'])
+                    partner = request.env['res.partner'].sudo().browse(partner_id)
+                    if not partner.exists():
+                        errors.append(f"Partner with ID {partner_id} not found")
+                except (ValueError, TypeError):
+                    errors.append("partner_id must be a valid integer")
+        
+        # Validate order_lines if provided
+        if 'order_lines' in data:
+            if not isinstance(data['order_lines'], list):
+                errors.append("order_lines must be an array")
+            else:
+                # Validate each order line
+                for idx, line in enumerate(data['order_lines']):
+                    line_errors = []
+                    
+                    # Check action type (create, update, delete)
+                    action = line.get('action', 'create')
+                    if action not in ['create', 'update', 'delete']:
+                        line_errors.append(f"Invalid action '{action}'. Must be 'create', 'update', or 'delete'")
+                    
+                    if action == 'delete':
+                        # For delete, only need line_id
+                        if not line.get('line_id'):
+                            line_errors.append("line_id is required for delete action")
+                        else:
+                            try:
+                                line_id = int(line['line_id'])
+                                order_line = request.env['sale.order.line'].sudo().browse(line_id)
+                                if not order_line.exists():
+                                    line_errors.append(f"Order line with ID {line_id} not found")
+                                elif order_line.order_id.id != order.id:
+                                    line_errors.append(f"Order line {line_id} does not belong to this order")
+                            except (ValueError, TypeError):
+                                line_errors.append("line_id must be a valid integer")
+                    
+                    elif action == 'update':
+                        # For update, need line_id
+                        if not line.get('line_id'):
+                            line_errors.append("line_id is required for update action")
+                        else:
+                            try:
+                                line_id = int(line['line_id'])
+                                order_line = request.env['sale.order.line'].sudo().browse(line_id)
+                                if not order_line.exists():
+                                    line_errors.append(f"Order line with ID {line_id} not found")
+                                elif order_line.order_id.id != order.id:
+                                    line_errors.append(f"Order line {line_id} does not belong to this order")
+                            except (ValueError, TypeError):
+                                line_errors.append("line_id must be a valid integer")
+                        
+                        # Validate product_id if changing
+                        if line.get('product_id'):
+                            try:
+                                product_id = int(line['product_id'])
+                                product = request.env['product.product'].sudo().browse(product_id)
+                                if not product.exists():
+                                    line_errors.append(f"Product with ID {product_id} not found")
+                                elif not product.sale_ok:
+                                    line_errors.append(f"Product {product.name} cannot be sold")
+                            except (ValueError, TypeError):
+                                line_errors.append("product_id must be a valid integer")
+                        
+                        # Validate quantity if changing
+                        if 'product_uom_qty' in line:
+                            try:
+                                qty = float(line['product_uom_qty'])
+                                if qty <= 0:
+                                    line_errors.append("product_uom_qty must be greater than 0")
+                            except (ValueError, TypeError):
+                                line_errors.append("product_uom_qty must be a valid number")
+                        
+                        # Validate price_unit if provided
+                        if 'price_unit' in line:
+                            try:
+                                price = float(line['price_unit'])
+                                if price < 0:
+                                    line_errors.append("price_unit must be >= 0")
+                            except (ValueError, TypeError):
+                                line_errors.append("price_unit must be a valid number")
+                        
+                        # Validate discount if provided
+                        if 'discount' in line:
+                            try:
+                                discount = float(line['discount'])
+                                if discount < 0 or discount > 100:
+                                    line_errors.append("discount must be between 0 and 100")
+                            except (ValueError, TypeError):
+                                line_errors.append("discount must be a valid number")
+                    
+                    elif action == 'create':
+                        # For create, validate like create order
+                        if not line.get('product_id'):
+                            line_errors.append("product_id is required for create action")
+                        else:
+                            try:
+                                product_id = int(line['product_id'])
+                                product = request.env['product.product'].sudo().browse(product_id)
+                                if not product.exists():
+                                    line_errors.append(f"Product with ID {product_id} not found")
+                                elif not product.sale_ok:
+                                    line_errors.append(f"Product {product.name} cannot be sold")
+                            except (ValueError, TypeError):
+                                line_errors.append("product_id must be a valid integer")
+                        
+                        if not line.get('product_uom_qty'):
+                            line_errors.append("product_uom_qty is required for create action")
+                        else:
+                            try:
+                                qty = float(line['product_uom_qty'])
+                                if qty <= 0:
+                                    line_errors.append("product_uom_qty must be greater than 0")
+                            except (ValueError, TypeError):
+                                line_errors.append("product_uom_qty must be a valid number")
+                        
+                        # Validate price_unit if provided
+                        if line.get('price_unit') is not None:
+                            try:
+                                price = float(line['price_unit'])
+                                if price < 0:
+                                    line_errors.append("price_unit must be >= 0")
+                            except (ValueError, TypeError):
+                                line_errors.append("price_unit must be a valid number")
+                        
+                        # Validate discount if provided
+                        if line.get('discount') is not None:
+                            try:
+                                discount = float(line['discount'])
+                                if discount < 0 or discount > 100:
+                                    line_errors.append("discount must be between 0 and 100")
+                            except (ValueError, TypeError):
+                                line_errors.append("discount must be a valid number")
+                    
+                    if line_errors:
+                        errors.append(f"Line {idx + 1} ({action}): {', '.join(line_errors)}")
+        return errors
+    
+    def _process_order_lines_update(self, order, order_lines_data):
+        """Process order lines update (create, update, delete)"""
+        OrderLine = request.env['sale.order.line'].sudo()
+        changes = {
+            'created': [],
+            'updated': [],
+            'deleted': []
+        }
+        
+        for line_data in order_lines_data:
+            action = line_data.get('action', 'create')
+            
+            if action == 'delete':
+                # Delete line
+                line_id = int(line_data['line_id'])
+                line = OrderLine.browse(line_id)
+                if line.exists() and line.order_id.id == order.id:
+                    line_info = {
+                        'id': line.id,
+                        'product': line.product_id.name,
+                        'quantity': line.product_uom_qty
+                    }
+                    line.unlink()
+                    changes['deleted'].append(line_info)
+            
+            elif action == 'update':
+                # Update existing line
+                line_id = int(line_data['line_id'])
+                line = OrderLine.browse(line_id)
+                
+                if line.exists() and line.order_id.id == order.id:
+                    update_vals = {}
+                    
+                    if line_data.get('product_id'):
+                        update_vals['product_id'] = int(line_data['product_id'])
+                    
+                    if 'product_uom_qty' in line_data:
+                        update_vals['product_uom_qty'] = float(line_data['product_uom_qty'])
+                    
+                    if 'price_unit' in line_data:
+                        update_vals['price_unit'] = float(line_data['price_unit'])
+                    
+                    if 'discount' in line_data:
+                        update_vals['discount'] = float(line_data['discount'])
+                    
+                    if line_data.get('product_uom'):
+                        update_vals['product_uom'] = int(line_data['product_uom'])
+                    
+                    if line_data.get('tax_ids'):
+                        update_vals['tax_id'] = [(6, 0, line_data['tax_ids'])]
+                    
+                    if update_vals:
+                        line.write(update_vals)
+                        changes['updated'].append({
+                            'id': line.id,
+                            'product': line.product_id.name,
+                            'updated_fields': list(update_vals.keys())
+                        })
+            
+            elif action == 'create':
+                # Create new line
+                product_id = int(line_data['product_id'])
+                product = request.env['product.product'].sudo().browse(product_id)
+                
+                line_vals = {
+                    'order_id': order.id,
+                    'product_id': product_id,
+                    'product_uom_qty': float(line_data['product_uom_qty']),
+                }
+                
+                if line_data.get('price_unit') is not None:
+                    line_vals['price_unit'] = float(line_data['price_unit'])
+                else:
+                    line_vals['price_unit'] = product.list_price
+                
+                if line_data.get('discount'):
+                    line_vals['discount'] = float(line_data['discount'])
+                
+                if line_data.get('product_uom'):
+                    line_vals['product_uom'] = int(line_data['product_uom'])
+                
+                if line_data.get('tax_ids'):
+                    line_vals['tax_id'] = [(6, 0, line_data['tax_ids'])]
+                
+                new_line = OrderLine.create(line_vals)
+                changes['created'].append({
+                    'id': new_line.id,
+                    'product': new_line.product_id.name,
+                    'quantity': new_line.product_uom_qty
+                })
+        
+        return changes
+    
+    @http.route('/api/v1/sale-orders/<int:order_id>/update', type='http', auth='public', methods=['PUT', 'PATCH'], csrf=False, cors='*')
+    def update_sale_order(self, order_id, **kwargs):
+        start_time = datetime.utcnow()
+        user = None
+        response_data = None
+        status_code = 200
+        log_status = 'success'
+        error_msg = None
+        
+        try:
+            # Validate token and domain
+            user, error_response, status_code = self._validate_token()
+            if error_response:
+                response_data = error_response
+                log_status = 'error'
+                error_msg = error_response.get('message')
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                return self._make_response(response_data, status_code)
+            
+            # Check permission
+            if not user.api_allow_sale_order_write:
+                error_msg = "Access denied: You do not have permission to update sale orders."
+                response_data = {
+                    'status': 'error',
+                    'message': error_msg,
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                log_status = 'failed'
+                status_code = 403
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Get sale order
+            order = request.env['sale.order'].sudo().browse(order_id)
+            
+            if not order.exists():
+                response_data = {
+                    'status': 'error',
+                    'message': f'Sale order with ID {order_id} not found',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 404
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Get JSON data from request body
+            try:
+                raw = request.httprequest.data
+                data = json.loads(raw.decode('utf-8'))
+            except json.JSONDecodeError as e:
+                response_data = {
+                    'status': 'error',
+                    'message': f'Invalid JSON format: {str(e)}',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Check if data is empty
+            if not data:
+                response_data = {
+                    'status': 'error',
+                    'message': 'No data provided for update',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Validate input data
+            validation_errors = self._validate_order_update_data(data, order)
+            if validation_errors:
+                response_data = {
+                    'status': 'error',
+                    'message': 'Validation failed',
+                    'errors': validation_errors,
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = ', '.join(validation_errors)
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Prepare update values
+            update_vals = {}
+            order_lines_changes = None
+            
+            # Update partner if provided
+            if 'partner_id' in data:
+                update_vals['partner_id'] = int(data['partner_id'])
+            
+            # if 'payment_term_id' in data:
+            #     update_vals['payment_term_id'] = int(data['payment_term_id']) if data['payment_term_id'] else False
+            
+            if 'note' in data:
+                update_vals['note'] = data['note'] if data['note'] else False
+            
+            # Update order if there are changes
+            if update_vals:
+                order.write(update_vals)
+            
+            # Process order lines if provided
+            if 'order_lines' in data and data['order_lines']:
+                order_lines_changes = self._process_order_lines_update(order, data['order_lines'])
+            
+            # Post message in chatter
+            order.message_post(
+                body='Sales order has been updated via API.',
+                message_type='comment'
+            )
+            
+            # Prepare response
+            order_data = self._prepare_sale_order_data(order, include_lines=True)
+            
+            response_data = {
+                'status': 'success',
+                'message': 'Sale order updated successfully',
+                'version': 'v1',
+                'timestamp': datetime.utcnow().isoformat() + "Z",
+                'data': order_data,
+                'updated_fields': list(update_vals.keys()) if update_vals else []
+            }
+            
+            # Add order lines changes to response
+            if order_lines_changes:
+                response_data['changes'] = {
+                    'order_lines': order_lines_changes
+                }
+            
+            # Log successful transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/sale-orders/{order_id}/update',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+            
+        except Exception as e:
+            error_msg = str(e)
+            response_data = {
+                'status': 'error',
+                'message': f'Failed to update sale order: {error_msg}',
+                'timestamp': datetime.utcnow().isoformat() + "Z"
+            }
+            log_status = 'failed'
+            status_code = 500
+            
+            _logger.error(f"API Error at /api/v1/sale-orders/{order_id}/update: {traceback.format_exc()}")
+            
+            # Log failed transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/sale-orders/{order_id}/update',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                error_message=error_msg,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code) 
+        
+        
+        # ====================== 4. CHANGE STATE SALE ORDER ==================================
+    
+    @http.route('/api/v1/sale-orders/<int:order_id>/change-state', type='http', auth='public', methods=['POST'], csrf=False, cors='*')
+    def change_sale_order_state(self, order_id, **kwargs):
+        start_time = datetime.utcnow()
+        user = None
+        response_data = None
+        status_code = 200
+        log_status = 'success'
+        error_msg = None
+        
+        try:
+            # Validate token and domain
+            user, error_response, status_code = self._validate_token()
+            if error_response:
+                response_data = error_response
+                log_status = 'error'
+                error_msg = error_response.get('message')
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                return self._make_response(response_data, status_code)
+            
+            # Check permission
+            if not user.api_allow_sale_order_write:
+                error_msg = "Access denied: You do not have permission to change sale order state."
+                response_data = {
+                    'status': 'error',
+                    'message': error_msg,
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                log_status = 'failed'
+                status_code = 403
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Get sale order
+            order = request.env['sale.order'].sudo().browse(order_id)
+            
+            if not order.exists():
+                response_data = {
+                    'status': 'error',
+                    'message': f'Sale order with ID {order_id} not found',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 404
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Get JSON data from request body
+            try:
+                raw = request.httprequest.data
+                data = json.loads(raw.decode('utf-8'))
+            except json.JSONDecodeError as e:
+                response_data = {
+                    'status': 'error',
+                    'message': f'Invalid JSON format: {str(e)}',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Validate action
+            action = data.get('action')
+            if not action:
+                response_data = {
+                    'status': 'error',
+                    'message': 'action is required',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Validate action value
+            valid_actions = ['confirm', 'cancel', 'draft', 'send']
+            if action not in valid_actions:
+                response_data = {
+                    'status': 'error',
+                    'message': f'Invalid action. Must be one of: {", ".join(valid_actions)}',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Store previous state
+            previous_state = order.state
+            previous_state_display = dict(order._fields['state'].selection).get(previous_state)
+            
+            # Execute action
+            action_message = ""
+            new_state = previous_state
+            
+            try:
+                if action == 'confirm':
+                    # Confirm order (draft/sent -> sale)
+                    if order.state not in ['draft', 'sent']:
+                        response_data = {
+                            'status': 'error',
+                            'message': f'Cannot confirm order in state "{previous_state}". Only draft or sent orders can be confirmed',
+                            'timestamp': datetime.utcnow().isoformat() + "Z"
+                        }
+                        status_code = 400
+                        log_status = 'error'
+                        error_msg = response_data['message']
+                        
+                        self._create_transaction_log(
+                            endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                            version='v1',
+                            user=user,
+                            response_data=response_data,
+                            status=log_status,
+                            response_status=status_code,
+                            error_message=error_msg,
+                            start_time=start_time
+                        )
+                        
+                        return self._make_response(response_data, status_code)
+                    
+                    # Check if order has lines
+                    if not order.order_line:
+                        response_data = {
+                            'status': 'error',
+                            'message': 'Cannot confirm order without order lines',
+                            'timestamp': datetime.utcnow().isoformat() + "Z"
+                        }
+                        status_code = 400
+                        log_status = 'error'
+                        error_msg = response_data['message']
+                        
+                        self._create_transaction_log(
+                            endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                            version='v1',
+                            user=user,
+                            response_data=response_data,
+                            status=log_status,
+                            response_status=status_code,
+                            error_message=error_msg,
+                            start_time=start_time
+                        )
+                        
+                        return self._make_response(response_data, status_code)
+                    
+                    order.action_confirm()
+                    new_state = order.state
+                    action_message = f'Sale order confirmed successfully (changed from {previous_state_display} to {dict(order._fields["state"].selection).get(new_state)})'
+                
+                elif action == 'cancel':
+                    # Cancel order
+                    if order.state == 'cancel':
+                        response_data = {
+                            'status': 'error',
+                            'message': 'Order is already cancelled',
+                            'timestamp': datetime.utcnow().isoformat() + "Z"
+                        }
+                        status_code = 400
+                        log_status = 'error'
+                        error_msg = response_data['message']
+                        
+                        self._create_transaction_log(
+                            endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                            version='v1',
+                            user=user,
+                            response_data=response_data,
+                            status=log_status,
+                            response_status=status_code,
+                            error_message=error_msg,
+                            start_time=start_time
+                        )
+                        
+                        return self._make_response(response_data, status_code)
+                    
+                    # Get cancellation reason
+                    reason = data.get('reason', '')
+                    
+                    # Cancel the order
+                    order.action_cancel()
+                    new_state = order.state
+                    
+                    # Post cancellation reason to chatter
+                    if reason:
+                        order.message_post(
+                            body=f'Order cancelled via API. Reason: {reason}',
+                            message_type='comment'
+                        )
+                        action_message = f'Sale order cancelled successfully. Reason: {reason}'
+                    else:
+                        order.message_post(
+                            body='Order cancelled via API.',
+                            message_type='comment'
+                        )
+                        action_message = 'Sale order cancelled successfully'
+                
+                elif action == 'draft':
+                    # Set to draft (only from cancel state)
+                    if order.state != 'cancel':
+                        response_data = {
+                            'status': 'error',
+                            'message': f'Cannot set to draft from state "{previous_state}". Only cancelled orders can be set back to draft',
+                            'timestamp': datetime.utcnow().isoformat() + "Z"
+                        }
+                        status_code = 400
+                        log_status = 'error'
+                        error_msg = response_data['message']
+                        
+                        self._create_transaction_log(
+                            endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                            version='v1',
+                            user=user,
+                            response_data=response_data,
+                            status=log_status,
+                            response_status=status_code,
+                            error_message=error_msg,
+                            start_time=start_time
+                        )
+                        
+                        return self._make_response(response_data, status_code)
+                    
+                    order.action_draft()
+                    new_state = order.state
+                    action_message = 'Sale order set back to draft successfully'
+                
+                elif action == 'send':
+                    # Send quotation (draft -> sent)
+                    if order.state != 'draft':
+                        response_data = {
+                            'status': 'error',
+                            'message': f'Cannot send quotation for order in state "{previous_state}". Only draft orders can be sent',
+                            'timestamp': datetime.utcnow().isoformat() + "Z"
+                        }
+                        status_code = 400
+                        log_status = 'error'
+                        error_msg = response_data['message']
+                        
+                        self._create_transaction_log(
+                            endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                            version='v1',
+                            user=user,
+                            response_data=response_data,
+                            status=log_status,
+                            response_status=status_code,
+                            error_message=error_msg,
+                            start_time=start_time
+                        )
+                        
+                        return self._make_response(response_data, status_code)
+                    
+                    # Check if order has lines
+                    if not order.order_line:
+                        response_data = {
+                            'status': 'error',
+                            'message': 'Cannot send quotation without order lines',
+                            'timestamp': datetime.utcnow().isoformat() + "Z"
+                        }
+                        status_code = 400
+                        log_status = 'error'
+                        error_msg = response_data['message']
+                        
+                        self._create_transaction_log(
+                            endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                            version='v1',
+                            user=user,
+                            response_data=response_data,
+                            status=log_status,
+                            response_status=status_code,
+                            error_message=error_msg,
+                            start_time=start_time
+                        )
+                        
+                        return self._make_response(response_data, status_code)
+                    
+                    # Mark as sent
+                    order.write({'state': 'sent'})
+                    new_state = order.state
+                    
+                    # Post to chatter
+                    order.message_post(
+                        body='Quotation marked as sent via API.',
+                        message_type='comment'
+                    )
+                    action_message = 'Quotation sent successfully'
+            
+            except Exception as e:
+                error_msg = f'Failed to execute action "{action}": {str(e)}'
+                response_data = {
+                    'status': 'error',
+                    'message': error_msg,
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 500
+                log_status = 'failed'
+                
+                _logger.error(f"Error executing action {action} on order {order_id}: {traceback.format_exc()}")
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Prepare response data
+            order_data = self._prepare_sale_order_data(order, include_lines=False)
+            
+            response_data = {
+                'status': 'success',
+                'message': action_message,
+                'version': 'v1',
+                'timestamp': datetime.utcnow().isoformat() + "Z",
+                'data': {
+                    'id': order.id,
+                    'name': order.name,
+                    'state': new_state,
+                    'state_display': dict(order._fields['state'].selection).get(new_state),
+                    'previous_state': previous_state,
+                    'previous_state_display': previous_state_display,
+                    'action': action,
+                    'partner': {
+                        'id': order.partner_id.id,
+                        'name': order.partner_id.name,
+                    } if order.partner_id else None,
+                    'amount_total': order.amount_total,
+                }
+            }
+            
+            # Log successful transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+            
+        except Exception as e:
+            error_msg = str(e)
+            response_data = {
+                'status': 'error',
+                'message': f'Failed to change sale order state: {error_msg}',
+                'timestamp': datetime.utcnow().isoformat() + "Z"
+            }
+            log_status = 'failed'
+            status_code = 500
+            
+            _logger.error(f"API Error at /api/v1/sale-orders/{order_id}/change-state: {traceback.format_exc()}")
+            
+            # Log failed transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/sale-orders/{order_id}/change-state',
                 version='v1',
                 user=user,
                 response_data=response_data,

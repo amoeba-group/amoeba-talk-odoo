@@ -22,15 +22,37 @@
                     
                     <separator/>
 
-                    <group string="Allowed API Endpoints">
+                    <group string="  API Endpoints">
                         <group string="Partners">
-                            <field name="api_allow_partner"/>
-                            <field name="api_allow_partner_create"/>
+                            <label for="api_allow_partner" string="Read"  class="fw-bold"/>
+                            <div class="o_row">
+                                <field name="api_allow_partner"/>
+
+                                <label for="api_allow_partner_create" string="Create"  class="fw-bold"/>
+                                <field name="api_allow_partner_create"/>
+
+                                <label for="api_allow_partner_write" string="Write"  class="fw-bold"/>
+                                <field name="api_allow_partner_write"/>
+
+                                <label for="api_allow_partner_delete" string="Delete"  class="fw-bold"/>
+                                <field name="api_allow_partner_delete"/>
+                            </div>
                         </group>
 
                         <group string="Sale Orders">
-                            <field name="api_allow_sale_order"/>
-                            <field name="api_allow_sale_order_create"/>
+                            <label for="api_allow_sale_order" string="Read"  class="fw-bold"/>
+                            <div class="o_row">
+                                <field name="api_allow_sale_order"/>
+
+                                <label for="api_allow_sale_order_create" string="Create"  class="fw-bold"/>
+                                <field name="api_allow_sale_order_create"/>
+
+                                <label for="api_allow_sale_order_write" string="Write"  class="fw-bold"/>
+                                <field name="api_allow_sale_order_write"/>
+
+                                <!-- <label for="api_allow_sale_order_delete" string="Delete"  class="fw-bold"/> -->
+                                <!-- <field name="api_allow_sale_order_delete"/> -->
+                            </div>
                         </group>
 
                         <group string="Countries &amp; States">

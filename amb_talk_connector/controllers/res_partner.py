@@ -923,3 +923,529 @@ class ApiPartnerV1Controller(ApiAuthBaseController):
             )
             
             return self._make_response(response_data, status_code)
+        
+        
+# ====================== 3. UPDATE PARTNER ==================================
+    def _validate_partner_update_data(self, data):
+        """Validate dữ liệu partner trước khi update - chỉ các field được phép"""
+        errors = []
+        
+        # Validate name if provided
+        if 'name' in data:
+            if not data['name']:
+                errors.append("name cannot be empty")
+            elif len(data['name'].strip()) < 2:
+                errors.append("name must be at least 2 characters")
+        
+        # Validate email format if provided
+        if 'email' in data and data['email']:
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, data['email']):
+                errors.append("email format is invalid")
+        
+        # Validate country_id if provided
+        if 'country_id' in data and data['country_id']:
+            try:
+                country_id = int(data['country_id'])
+                country = request.env['res.country'].sudo().browse(country_id)
+                if not country.exists():
+                    errors.append(f"Country with ID {country_id} not found")
+            except (ValueError, TypeError):
+                errors.append("country_id must be a valid integer")
+        
+        # Validate state_id if provided
+        if 'state_id' in data and data['state_id']:
+            try:
+                state_id = int(data['state_id'])
+                state = request.env['res.country.state'].sudo().browse(state_id)
+                if not state.exists():
+                    errors.append(f"State with ID {state_id} not found")
+            except (ValueError, TypeError):
+                errors.append("state_id must be a valid integer")
+        
+        # Check for non-allowed fields
+        allowed_fields = [
+            'name', 'email', 'phone', 'mobile', 'website', 'vat',
+            'street', 'street2', 'city', 'zip', 'state_id', 'country_id',
+            'lang', 'tz'
+        ]
+        
+        non_allowed = [field for field in data.keys() if field not in allowed_fields]
+        if non_allowed:
+            errors.append(f"Fields not allowed for update: {', '.join(non_allowed)}")
+        
+        return errors
+    
+    @http.route('/api/v1/partners/<int:partner_id>/update', type='http', auth='public', methods=['PUT', 'PATCH'], csrf=False, cors='*')
+    def update_partner(self, partner_id, **kwargs):
+        start_time = datetime.utcnow()
+        user = None
+        response_data = None
+        status_code = 200
+        log_status = 'success'
+        error_msg = None
+        
+        try:
+            # Validate token and domain
+            user, error_response, status_code = self._validate_token()
+            if error_response:
+                response_data = error_response
+                log_status = 'error'
+                error_msg = error_response.get('message')
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                return self._make_response(response_data, status_code)
+            
+            # Check permission for update
+            if not user.api_allow_partner_update:
+                error_msg = "Access denied: You do not have permission to update partners."
+                response_data = {
+                    'status': 'error',
+                    'message': error_msg,
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                log_status = 'failed'
+                status_code = 403
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Get partner
+            partner = request.env['res.partner'].sudo().browse(partner_id)
+            
+            if not partner.exists() or partner.id in [1, 2, 3, 4, 5, 6]:
+                response_data = {
+                    'status': 'error',
+                    'message': f'Partner with ID {partner_id} not found or cannot be updated',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 404
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Get JSON data from request body
+            try:
+                raw = request.httprequest.data
+                data = json.loads(raw.decode('utf-8'))
+            except json.JSONDecodeError as e:
+                response_data = {
+                    'status': 'error',
+                    'message': f'Invalid JSON format: {str(e)}',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Check if data is empty
+            if not data:
+                response_data = {
+                    'status': 'error',
+                    'message': 'No data provided for update',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Validate input data
+            validation_errors = self._validate_partner_update_data(data)
+            if validation_errors:
+                response_data = {
+                    'status': 'error',
+                    'message': 'Validation failed',
+                    'errors': validation_errors,
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = ', '.join(validation_errors)
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/update',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Prepare update values - chỉ các field được phép
+            update_vals = {}
+            
+            # Simple string fields
+            simple_fields = ['email', 'phone', 'mobile', 'website', 'vat', 
+                           'street', 'street2', 'city', 'zip', 'lang', 'tz']
+            
+            for field in simple_fields:
+                if field in data:
+                    update_vals[field] = data[field] if data[field] else False
+            
+            # Name field - trim whitespace
+            if 'name' in data:
+                update_vals['name'] = data['name'].strip()
+            
+            # Relational fields
+            if 'state_id' in data:
+                update_vals['state_id'] = int(data['state_id']) if data['state_id'] else False
+            
+            if 'country_id' in data:
+                update_vals['country_id'] = int(data['country_id']) if data['country_id'] else False
+            
+            # Update partner
+            partner.write(update_vals)
+            
+            # Prepare response
+            partner_data = self._prepare_partner_data(
+                partner,
+                include_contacts=False,
+                include_addresses=False
+            )
+            
+            response_data = {
+                'status': 'success',
+                'message': 'Partner updated successfully',
+                'version': 'v1',
+                'timestamp': datetime.utcnow().isoformat() + "Z",
+                'data': partner_data,
+                'updated_fields': list(update_vals.keys())
+            }
+            
+            # Log successful transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/partners/{partner_id}/update',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+            
+        except Exception as e:
+            error_msg = str(e)
+            response_data = {
+                'status': 'error',
+                'message': f'Failed to update partner: {error_msg}',
+                'timestamp': datetime.utcnow().isoformat() + "Z"
+            }
+            log_status = 'failed'
+            status_code = 500
+            
+            _logger.error(f"API Error at /api/v1/partners/{partner_id}/update: {traceback.format_exc()}")
+            
+            # Log failed transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/partners/{partner_id}/update',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                error_message=error_msg,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+        
+# ====================== 4. DELETE PARTNER (SOFT DELETE) ==================================
+    @http.route('/api/v1/partners/<int:partner_id>/delete', type='http', auth='public', methods=['DELETE'], csrf=False, cors='*')
+    def delete_partner(self, partner_id, **kwargs):
+        start_time = datetime.utcnow()
+        user = None
+        response_data = None
+        status_code = 200
+        log_status = 'success'
+        error_msg = None
+        
+        try:
+            # Validate token and domain
+            user, error_response, status_code = self._validate_token()
+            if error_response:
+                response_data = error_response
+                log_status = 'error'
+                error_msg = error_response.get('message')
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/delete',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                return self._make_response(response_data, status_code)
+            
+            # Check permission for delete
+            if not user.api_allow_partner_delete:
+                error_msg = "Access denied: You do not have permission to delete partners."
+                response_data = {
+                    'status': 'error',
+                    'message': error_msg,
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                log_status = 'failed'
+                status_code = 403
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/delete',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Get partner
+            Partner = request.env['res.partner'].sudo()
+            partner = Partner.browse(partner_id)
+            
+            # Check if partner exists
+            if not partner.exists():
+                response_data = {
+                    'status': 'error',
+                    'message': f'Partner with ID {partner_id} not found',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 404
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/delete',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            if partner.id in [1, 2, 3, 4, 5, 6]:
+                response_data = {
+                    'status': 'error',
+                    'message': f'Cannot delete partner (ID {partner_id})',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 403
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/delete',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Check if partner is already inactive
+            if not partner.active:
+                response_data = {
+                    'status': 'error',
+                    'message': f'Partner with ID {partner_id} is already inactive',
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 400
+                log_status = 'error'
+                error_msg = response_data['message']
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/delete',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            partner_name = partner.name
+            partner_type = partner.type
+            
+            children = partner.child_ids.filtered(lambda c: c.active)
+            
+            deactivated_records = []
+            
+            deactivated_records.append({
+                'id': partner.id,
+                'name': partner.name,
+                'type': partner.type,
+                'is_main': True
+            })
+            
+            for child in children:
+                deactivated_records.append({
+                    'id': child.id,
+                    'name': child.name,
+                    'type': child.type,
+                    'is_main': False
+                })
+            
+            try:
+                if children:
+                    children.write({'active': False})
+                
+                partner.write({'active': False})
+                
+                deactivated_count = 1 + len(children)
+                
+            except Exception as e:
+                error_msg = f"Failed to deactivate partner: {str(e)}"
+                response_data = {
+                    'status': 'error',
+                    'message': error_msg,
+                    'timestamp': datetime.utcnow().isoformat() + "Z"
+                }
+                status_code = 500
+                log_status = 'failed'
+                
+                _logger.error(f"Error delete partner {partner_id}: {traceback.format_exc()}")
+                
+                self._create_transaction_log(
+                    endpoint=f'/api/v1/partners/{partner_id}/delete',
+                    version='v1',
+                    user=user,
+                    response_data=response_data,
+                    status=log_status,
+                    response_status=status_code,
+                    error_message=error_msg,
+                    start_time=start_time
+                )
+                
+                return self._make_response(response_data, status_code)
+            
+            # Prepare success response
+            response_data = {
+                'status': 'success',
+                'message': f'Partner delete successfully',
+                'version': 'v1',
+                'timestamp': datetime.utcnow().isoformat() + "Z",
+                'data': {
+                    'partner_id': partner_id,
+                    'partner_name': partner_name,
+                    'partner_type': partner_type,
+                    'deactivated_count': deactivated_count,
+                    'children_count': len(children),
+                    'deactivated_records': deactivated_records
+                }
+            }
+            
+            # Log successful transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/partners/{partner_id}/delete',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)
+            
+        except Exception as e:
+            error_msg = str(e)
+            response_data = {
+                'status': 'error',
+                'message': f'Internal server error: {error_msg}',
+                'timestamp': datetime.utcnow().isoformat() + "Z"
+            }
+            log_status = 'failed'
+            status_code = 500
+            
+            _logger.error(f"API Error at /api/v1/partners/{partner_id}/delete: {traceback.format_exc()}")
+            
+            # Log failed transaction
+            self._create_transaction_log(
+                endpoint=f'/api/v1/partners/{partner_id}/delete',
+                version='v1',
+                user=user,
+                response_data=response_data,
+                status=log_status,
+                response_status=status_code,
+                error_message=error_msg,
+                start_time=start_time
+            )
+            
+            return self._make_response(response_data, status_code)

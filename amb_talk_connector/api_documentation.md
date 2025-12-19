@@ -1508,6 +1508,255 @@ Authorization: Bearer YOUR_TOKEN
 }
 ```
 
+### 4.4. Cập Nhật Đối Tác
+
+Cập nhật thông tin cơ bản của một đối tác.
+
+**Endpoint**: `PUT /api/v1/partners/{partner_id}/update`
+
+**Quyền**: `api_allow_partner_update`
+
+**Content-Type**: `application/json`
+
+**Lưu ý**: API này chỉ cho phép cập nhật các thông tin liên hệ và địa chỉ cơ bản. Không thể thay đổi type, parent_id, is_company, hoặc các trường quan hệ khác.
+
+#### URL Parameters
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `partner_id` | integer | Có | ID đối tác cần cập nhật |
+
+#### Query Parameters
+
+Không có query parameters.
+
+#### Request Body
+```json
+{
+    "name": "Tên công ty đã cập nhật",
+    "email": "newemail@example.com",
+    "phone": "+84 123 456 789",
+    "mobile": "+84 987 654 321",
+    "website": "https://newwebsite.com",
+    "vat": "9876543210",
+    "street": "456 Đường Mới",
+    "street2": "Tầng 10",
+    "city": "Hà Nội",
+    "zip": "100000",
+    "state_id": 2,
+    "country_id": 233,
+    "lang": "vi_VN",
+    "tz": "Asia/Ho_Chi_Minh"
+}
+```
+
+**Các trường được phép cập nhật:**
+
+| Trường | Kiểu | Mô tả |
+|--------|------|-------|
+| `name` | string | Tên đối tác (tối thiểu 2 ký tự) |
+| `email` | string | Email (định dạng hợp lệ) |
+| `phone` | string | Số điện thoại |
+| `mobile` | string | Số di động |
+| `website` | string | Website |
+| `vat` | string | Mã số thuế |
+| `street` | string | Địa chỉ dòng 1 |
+| `street2` | string | Địa chỉ dòng 2 |
+| `city` | string | Thành phố |
+| `zip` | string | Mã bưu điện |
+| `state_id` | integer | ID tỉnh/thành |
+| `country_id` | integer | ID quốc gia |
+| `lang` | string | Ngôn ngữ (vi_VN, en_US, ...) |
+| `tz` | string | Múi giờ (Asia/Ho_Chi_Minh, ...) |
+
+**Lưu ý**: Chỉ cần gửi các trường muốn cập nhật, không cần gửi tất cả.
+
+#### Ví Dụ Request
+```bash
+PUT /api/v1/partners/150/update
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+    "name": "Công ty Giải Pháp Công Nghệ ABC",
+    "email": "contact@techsolutions.com.vn",
+    "phone": "+84 28 1234 5678",
+    "street": "456 Đường Lê Lợi",
+    "city": "Hồ Chí Minh",
+    "state_id": 1
+}
+```
+
+#### Ví Dụ Response (Thành công)
+```json
+{
+    "status": "success",
+    "message": "Cập nhật đối tác thành công",
+    "version": "v1",
+    "timestamp": "2024-12-19T10:00:00Z",
+    "data": {
+        "id": 150,
+        "name": "Công ty Giải Pháp Công Nghệ ABC",
+        "display_name": "Công ty Giải Pháp Công Nghệ ABC",
+        "ref": null,
+        "type": "contact",
+        "is_company": true,
+        "is_customer": true,
+        "is_supplier": false,
+        "active": true,
+        "email": "contact@techsolutions.com.vn",
+        "phone": "+84 28 1234 5678",
+        "mobile": null,
+        "website": null,
+        "vat": "0123456789",
+        "street": "456 Đường Lê Lợi",
+        "street2": null,
+        "city": "Hồ Chí Minh",
+        "zip": null,
+        "state": {
+            "id": 1,
+            "name": "Hồ Chí Minh",
+            "code": "SG"
+        },
+        "country": {
+            "id": 233,
+            "name": "Vietnam",
+            "code": "VN"
+        },
+        "parent": null,
+        "company": {
+            "id": 1,
+            "name": "Công ty của tôi"
+        },
+        "user": null,
+        "comment": null,
+        "categories": [],
+        "lang": "vi_VN",
+        "tz": "Asia/Ho_Chi_Minh",
+        "create_date": "2024-11-25T10:00:00",
+        "write_date": "2024-12-19T10:00:00"
+    },
+    "updated_fields": [
+        "name",
+        "email",
+        "phone",
+        "street",
+        "city",
+        "state_id"
+    ]
+}
+```
+
+#### Ví Dụ Response (Lỗi Validation)
+```json
+{
+    "status": "error",
+    "message": "Validation thất bại",
+    "timestamp": "2024-12-19T10:00:00Z",
+    "errors": [
+        "định dạng email không hợp lệ",
+        "Không tìm thấy quốc gia với ID 999",
+        "Các trường không được phép cập nhật: is_company, ref"
+    ]
+}
+```
+
+---
+
+### 4.5. Xóa Đối Tác (Vô Hiệu Hóa)
+
+Xóa (vô hiệu hóa) một đối tác bằng cách đặt `active = False`.
+
+**Endpoint**: `DELETE /api/v1/partners/{partner_id}/delete`
+
+**Quyền**: `api_allow_partner_delete`
+
+**Lưu ý**: 
+- Đây là soft delete, không xóa thật khỏi database
+- Tự động vô hiệu hóa tất cả đối tác con (children)
+- Không thể xóa đối tác hệ thống (ID 1-6)
+- Không thể xóa đối tác đã bị vô hiệu hóa
+
+#### URL Parameters
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `partner_id` | integer | Có | ID đối tác cần xóa |
+
+#### Query Parameters
+
+Không có query parameters.
+
+#### Request Body
+
+Không có request body.
+
+#### Ví Dụ Request
+```bash
+DELETE /api/v1/partners/150/delete
+Authorization: Bearer YOUR_TOKEN
+```
+
+#### Ví Dụ Response (Thành công)
+```json
+{
+    "status": "success",
+    "message": "Vô hiệu hóa đối tác thành công",
+    "version": "v1",
+    "timestamp": "2024-12-19T10:00:00Z",
+    "data": {
+        "partner_id": 150,
+        "partner_name": "Công ty Giải Pháp Công Nghệ ABC",
+        "partner_type": "contact",
+        "deactivated_count": 4,
+        "children_count": 3,
+        "deactivated_records": [
+            {
+                "id": 150,
+                "name": "Công ty Giải Pháp Công Nghệ ABC",
+                "type": "contact",
+                "is_main": true
+            },
+            {
+                "id": 151,
+                "name": "Địa chỉ giao hàng",
+                "type": "delivery",
+                "is_main": false
+            },
+            {
+                "id": 152,
+                "name": "Địa chỉ xuất hóa đơn",
+                "type": "invoice",
+                "is_main": false
+            },
+            {
+                "id": 153,
+                "name": "Nguyễn Văn A - Liên hệ",
+                "type": "contact",
+                "is_main": false
+            }
+        ]
+    }
+}
+```
+
+#### Ví Dụ Response (Lỗi)
+```json
+{
+    "status": "error",
+    "message": "Đối tác với ID 150 đã bị vô hiệu hóa",
+    "timestamp": "2024-12-19T10:00:00Z"
+}
+```
+```json
+{
+    "status": "error",
+    "message": "Không thể xóa đối tác hệ thống (ID 1)",
+    "timestamp": "2024-12-19T10:00:00Z"
+}
+```
+
+
 ---
 
 ## 5. API ĐƠN HÀNG BÁN
@@ -2028,6 +2277,441 @@ Authorization: Bearer YOUR_TOKEN
         "Dòng 2: product_uom_qty phải lớn hơn 0",
         "Dòng 3: Sản phẩm Test (ID: 999) không thể bán"
     ]
+}
+```
+
+### 5.4. Cập Nhật Đơn Hàng
+
+Cập nhật thông tin đơn hàng khi ở trạng thái `draft` hoặc `sent`.
+
+**Endpoint**: `PUT /api/v1/sale-orders/{order_id}/update`
+
+**Quyền**: `api_allow_sale_order_update`
+
+**Content-Type**: `application/json`
+
+**Lưu ý**: 
+- Chỉ có thể cập nhật đơn hàng ở trạng thái `draft` hoặc `sent`
+- Có thể thay đổi khách hàng, thêm/sửa/xóa chi tiết đơn hàng
+- Hỗ trợ cả PUT và PATCH methods
+
+#### URL Parameters
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `order_id` | integer | Có | ID đơn hàng cần cập nhật |
+
+#### Query Parameters
+
+Không có query parameters.
+
+#### Request Body
+```json
+{
+    "partner_id": 456,
+    "client_order_ref": "PO-2024-002",
+    "user_id": 3,
+    "payment_term_id": 2,
+    "note": "Cập nhật ghi chú giao hàng",
+    "order_lines": [
+        {
+            "action": "create",
+            "product_id": 10,
+            "product_uom_qty": 5,
+            "price_unit": 100.00,
+            "discount": 10,
+            "name": "Mô tả tùy chỉnh",
+            "product_uom": 1,
+            "tax_ids": [1]
+        },
+        {
+            "action": "update",
+            "line_id": 456,
+            "product_uom_qty": 3,
+            "price_unit": 150.00,
+            "discount": 5
+        },
+        {
+            "action": "delete",
+            "line_id": 789
+        }
+    ]
+}
+```
+
+**Các trường được phép cập nhật:**
+
+| Trường | Kiểu | Mô tả |
+|--------|------|-------|
+| `partner_id` | integer | ID khách hàng mới |
+| `client_order_ref` | string | Mã đơn hàng khách |
+| `user_id` | integer | ID nhân viên bán hàng |
+| `payment_term_id` | integer | ID điều khoản thanh toán |
+| `note` | string | Ghi chú nội bộ |
+| `order_lines` | array | Mảng thao tác trên chi tiết đơn hàng |
+
+**Chi tiết order_lines actions:**
+
+**Action: create** (Tạo dòng mới)
+
+| Trường | Kiểu | Bắt buộc | Mô tả |
+|--------|------|----------|-------|
+| `action` | string | Có | Giá trị: "create" |
+| `product_id` | integer | Có | ID sản phẩm |
+| `product_uom_qty` | float | Có | Số lượng (> 0) |
+| `price_unit` | float | Không | Đơn giá |
+| `discount` | float | Không | Chiết khấu % (0-100) |
+| `name` | string | Không | Mô tả dòng |
+| `product_uom` | integer | Không | ID đơn vị tính |
+| `tax_ids` | array | Không | Mảng ID thuế |
+
+**Action: update** (Cập nhật dòng hiện có)
+
+| Trường | Kiểu | Bắt buộc | Mô tả |
+|--------|------|----------|-------|
+| `action` | string | Có | Giá trị: "update" |
+| `line_id` | integer | Có | ID dòng cần cập nhật |
+| `product_id` | integer | Không | ID sản phẩm mới |
+| `product_uom_qty` | float | Không | Số lượng mới |
+| `price_unit` | float | Không | Đơn giá mới |
+| `discount` | float | Không | Chiết khấu mới |
+| `name` | string | Không | Mô tả mới |
+| `product_uom` | integer | Không | ID đơn vị tính mới |
+| `tax_ids` | array | Không | Mảng ID thuế mới |
+
+**Action: delete** (Xóa dòng)
+
+| Trường | Kiểu | Bắt buộc | Mô tả |
+|--------|------|----------|-------|
+| `action` | string | Có | Giá trị: "delete" |
+| `line_id` | integer | Có | ID dòng cần xóa |
+
+**Lưu ý**: Chỉ cần gửi các trường muốn cập nhật.
+
+#### Ví Dụ Request (Cập nhật khách hàng)
+```bash
+PUT /api/v1/sale-orders/51/update
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+    "partner_id": 7,
+    "client_order_ref": "PO-2024-100-V2",
+    "note": "Khách yêu cầu giao trước 5h"
+}
+```
+
+#### Ví Dụ Request (Thêm và xóa order lines)
+```bash
+PATCH /api/v1/sale-orders/51/update
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+    "order_lines": [
+        {
+            "action": "create",
+            "product_id": 3,
+            "product_uom_qty": 10,
+            "price_unit": 50.00
+        },
+        {
+            "action": "update",
+            "line_id": 101,
+            "product_uom_qty": 5,
+            "discount": 15
+        },
+        {
+            "action": "delete",
+            "line_id": 102
+        }
+    ]
+}
+```
+
+#### Ví Dụ Response (Thành công)
+```json
+{
+    "status": "success",
+    "message": "Cập nhật đơn hàng thành công",
+    "version": "v1",
+    "timestamp": "2024-12-19T10:00:00Z",
+    "data": {
+        "id": 51,
+        "name": "SO051",
+        "state": "draft",
+        "state_display": "Báo giá",
+        "date_order": "2024-11-25T10:00:00",
+        "validity_date": null,
+        "partner": {
+            "id": 7,
+            "name": "Công ty Azure Interior",
+            "email": "contact@azure.com",
+            "phone": "+84 123 456 789"
+        },
+        "company": {
+            "id": 1,
+            "name": "Công ty của tôi"
+        },
+        "currency": {
+            "id": 1,
+            "name": "USD",
+            "symbol": "$"
+        },
+        "amount_untaxed": 950.00,
+        "amount_tax": 95.00,
+        "amount_total": 1045.00,
+        "note": "Khách yêu cầu giao trước 5h",
+        "order_lines": [
+            {
+                "id": 101,
+                "product": {
+                    "id": 1,
+                    "name": "Laptop Dell XPS 13",
+                    "default_code": "LAPTOP-001"
+                },
+                "name": "Laptop Dell XPS 13",
+                "product_uom_qty": 5.0,
+                "price_unit": 500.00,
+                "discount": 15.0,
+                "price_subtotal": 2125.00,
+                "price_total": 2337.50
+            },
+            {
+                "id": 103,
+                "product": {
+                    "id": 3,
+                    "name": "Bàn phím Logitech",
+                    "default_code": "KEY-001"
+                },
+                "name": "Bàn phím Logitech",
+                "product_uom_qty": 10.0,
+                "price_unit": 50.00,
+                "discount": 0.0,
+                "price_subtotal": 500.00,
+                "price_total": 550.00
+            }
+        ],
+        "create_date": "2024-11-25T10:00:00",
+        "write_date": "2024-12-19T10:00:00"
+    },
+    "updated_fields": [
+        "partner_id",
+        "client_order_ref",
+        "note"
+    ],
+    "changes": {
+        "order_lines": {
+            "created": [
+                {
+                    "id": 103,
+                    "product": "Bàn phím Logitech",
+                    "quantity": 10.0
+                }
+            ],
+            "updated": [
+                {
+                    "id": 101,
+                    "product": "Laptop Dell XPS 13",
+                    "updated_fields": [
+                        "product_uom_qty",
+                        "discount"
+                    ]
+                }
+            ],
+            "deleted": [
+                {
+                    "id": 102,
+                    "product": "Chuột Logitech",
+                    "quantity": 1.0
+                }
+            ]
+        }
+    }
+}
+```
+
+#### Ví Dụ Response (Lỗi Validation)
+```json
+{
+    "status": "error",
+    "message": "Validation thất bại",
+    "timestamp": "2024-12-19T10:00:00Z",
+    "errors": [
+        "Không thể cập nhật đơn hàng ở trạng thái 'sale'. Chỉ có thể cập nhật 'draft' hoặc 'sent'",
+        "Dòng 1 (update): ID dòng 456 không tìm thấy",
+        "Dòng 2 (create): product_uom_qty phải lớn hơn 0",
+        "Dòng 3 (delete): Dòng 789 không thuộc đơn hàng này"
+    ]
+}
+```
+
+---
+
+### 5.5. Thay Đổi Trạng Thái Đơn Hàng
+
+Thay đổi trạng thái của đơn hàng (xác nhận, hủy, gửi quotation, đưa về draft).
+
+**Endpoint**: `POST /api/v1/sale-orders/{order_id}/change-state`
+
+**Quyền**: `api_allow_sale_order_change_state`
+
+**Content-Type**: `application/json`
+
+#### URL Parameters
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `order_id` | integer | Có | ID đơn hàng cần thay đổi trạng thái |
+
+#### Query Parameters
+
+Không có query parameters.
+
+#### Request Body
+```json
+{
+    "action": "confirm",
+    "reason": "Lý do hủy đơn (bắt buộc khi action = cancel)"
+}
+```
+
+**Các action được hỗ trợ:**
+
+| Action | Từ Trạng Thái | Đến Trạng Thái | Mô Tả |
+|--------|---------------|----------------|-------|
+| `confirm` | draft, sent | sale | Xác nhận đơn hàng |
+| `cancel` | bất kỳ | cancel | Hủy đơn hàng |
+| `draft` | cancel | draft | Đưa về draft |
+| `send` | draft | sent | Gửi quotation |
+
+**Tham số:**
+
+| Trường | Kiểu | Bắt buộc | Mô tả |
+|--------|------|----------|-------|
+| `action` | string | Có | Hành động: confirm, cancel, draft, send |
+| `reason` | string | Có (khi action=cancel) | Lý do hủy đơn |
+
+#### Ví Dụ Request (Xác nhận đơn hàng)
+```bash
+POST /api/v1/sale-orders/51/change-state
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+    "action": "confirm"
+}
+```
+
+#### Ví Dụ Request (Hủy đơn hàng)
+```bash
+POST /api/v1/sale-orders/51/change-state
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+    "action": "cancel",
+    "reason": "Khách hàng yêu cầu hủy do thay đổi kế hoạch"
+}
+```
+
+#### Ví Dụ Request (Gửi quotation)
+```bash
+POST /api/v1/sale-orders/51/change-state
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+    "action": "send"
+}
+```
+
+#### Ví Dụ Request (Đưa về draft)
+```bash
+POST /api/v1/sale-orders/51/change-state
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+    "action": "draft"
+}
+```
+
+#### Ví Dụ Response (Thành công - Confirm)
+```json
+{
+    "status": "success",
+    "message": "Xác nhận đơn hàng thành công (đã chuyển từ Báo giá sang Đơn hàng bán)",
+    "version": "v1",
+    "timestamp": "2024-12-19T10:00:00Z",
+    "data": {
+        "id": 51,
+        "name": "SO051",
+        "state": "sale",
+        "state_display": "Đơn hàng bán",
+        "previous_state": "draft",
+        "previous_state_display": "Báo giá",
+        "action": "confirm",
+        "partner": {
+            "id": 7,
+            "name": "Công ty Azure Interior"
+        },
+        "amount_total": 1045.00
+    }
+}
+```
+
+#### Ví Dụ Response (Thành công - Cancel)
+```json
+{
+    "status": "success",
+    "message": "Hủy đơn hàng thành công. Lý do: Khách hàng yêu cầu hủy do thay đổi kế hoạch",
+    "version": "v1",
+    "timestamp": "2024-12-19T10:00:00Z",
+    "data": {
+        "id": 51,
+        "name": "SO051",
+        "state": "cancel",
+        "state_display": "Đã hủy",
+        "previous_state": "draft",
+        "previous_state_display": "Báo giá",
+        "action": "cancel",
+        "partner": {
+            "id": 7,
+            "name": "Công ty Azure Interior"
+        },
+        "amount_total": 1045.00
+    }
+}
+```
+
+#### Ví Dụ Response (Lỗi)
+```json
+{
+    "status": "error",
+    "message": "Không thể xác nhận đơn hàng ở trạng thái 'cancel'. Chỉ có thể xác nhận 'draft' hoặc 'sent'",
+    "timestamp": "2024-12-19T10:00:00Z"
+}
+```
+```json
+{
+    "status": "error",
+    "message": "Không thể xác nhận đơn hàng không có chi tiết đơn hàng",
+    "timestamp": "2024-12-19T10:00:00Z"
+}
+```
+```json
+{
+    "status": "error",
+    "message": "Đơn hàng đã bị hủy",
+    "timestamp": "2024-12-19T10:00:00Z"
+}
+```
+```json
+{
+    "status": "error",
+    "message": "Action không hợp lệ. Phải là một trong: confirm, cancel, draft, send",
+    "timestamp": "2024-12-19T10:00:00Z"
 }
 ```
 
