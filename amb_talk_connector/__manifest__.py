@@ -74,7 +74,7 @@ Complete setup guide and API documentation available at:
 https://github.com/amoeba-group/amoeba-talk-odoo
     """,
     
-    'version': '18.0.0.1',
+    'version': '18.0.0.2',
     'category': 'Technical/API',
     'license': 'LGPL-3',
     

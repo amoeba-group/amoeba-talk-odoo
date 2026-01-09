@@ -22,6 +22,8 @@ class ApiSaleOrderV1Controller(ApiAuthBaseController):
             search_term = filters['search']
             domain.append('|')
             domain.append(('name', 'ilike', search_term))
+            domain.append(('partner_id.name', 'ilike', search_term))
+            
         # Filter by state
         if filters.get('state'):
             states = filters['state'].split(',') if isinstance(filters['state'], str) else [filters['state']]
